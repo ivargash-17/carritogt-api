@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CarritoGT</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f8; color: #222; }
+        header { background: #1f3a5f; color: #fff; padding: 16px 24px; }
+        main { display: flex; gap: 24px; padding: 24px; flex-wrap: wrap; }
+        section { flex: 1 1 420px; }
+        h2 { margin-top: 0; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+        .card { background: #fff; border-radius: 8px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.15); text-align: center; }
+        .card img { width: 100%; height: 140px; object-fit: contain; }
+        button { background: #2e7d32; color: #fff; border: 0; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
+        button.del { background: #c62828; }
+        table { width: 100%; border-collapse: collapse; background: #fff; }
+        th, td { padding: 8px; border-bottom: 1px solid #ddd; text-align: left; }
+        td img { width: 48px; height: 48px; object-fit: contain; }
+        #mensaje { margin: 12px 24px 0; padding: 10px; border-radius: 4px; display: none; }
+        #mensaje.error { background: #fdecea; color: #b71c1c; display: block; }
+        #mensaje.ok { background: #e8f5e9; color: #1b5e20; display: block; }
+        .total { text-align: right; font-weight: bold; margin-top: 8px; }
+    </style>
+</head>
+<body>
+<header><h1>CarritoGT</h1></header>
+<div id="mensaje"></div>
+<main>
+    <section>
+        <h2>Productos</h2>
+        <div id="productos" class="grid"></div>
+    </section>
+    <section>
+        <h2>Mi carrito</h2>
+        <table>
+            <thead><tr><th></th><th>Producto</th><th>Cant.</th><th>Subtotal</th><th></th></tr></thead>
+            <tbody id="carrito"></tbody>
+        </table>
+        <div class="total">Total: Q<span id="total">0.00</span></div>
+    </section>
+</main>
+
+<script>
+    // Si el HTML se abre desde Spring (http://localhost:8080) basta con ''.
+    // Si se abre desde otro origen (p.ej. Live Server) cambia a 'http://localhost:8080'.
+    const API = '';
+    const USUARIO = 'usuario1';
+
+    function aviso(texto, tipo) {
+        const m = document.getElementById('mensaje');
+        m.textContent = texto;
+        m.className = tipo;
+        setTimeout(() => { m.className = ''; m.textContent = ''; }, 4000);
+    }
+
+    async function pedir(url, opciones) {
+        try {
+            const resp = await fetch(API + url, opciones);
+            const datos = await resp.json().catch(() => ({}));
+            if (!resp.ok) {
+                throw new Error(datos.mensaje || ('Error HTTP ' + resp.status));
+            }
+            return datos;
+        } catch (e) {
+            aviso(e.message || 'No se pudo conectar con la API', 'error');
+            throw e;
+        }
+    }
+
+    async function cargarProductos() {
+        const productos = await pedir('/api/productos');
+        const cont = document.getElementById('productos');
+        cont.innerHTML = '';
+        productos.forEach(p => {
+            const div = document.createElement('div');
+            div.className = 'card';
+            const img = document.createElement('img');
+            img.src = p.imagen || '';
+            img.alt = p.nombre;
+            const nombre = document.createElement('h3');
+            nombre.textContent = p.nombre;
+            const precio = document.createElement('p');
+            precio.textContent = 'Q' + Number(p.precio).toFixed(2);
+            const btn = document.createElement('button');
+            btn.textContent = 'Agregar al carrito';
+            btn.onclick = () => agregar(p.idProducto);
+            div.append(img, nombre, precio, btn);
+            cont.appendChild(div);
+        });
+    }
+
+    async function cargarCarrito() {
+        const items = await pedir('/api/carrito/' + USUARIO);
+        const tbody = document.getElementById('carrito');
+        tbody.innerHTML = '';
+        let total = 0;
+        items.forEach(i => {
+            total += i.subtotal;
+            const tr = document.createElement('tr');
+            const tdImg = document.createElement('td');
+            const img = document.createElement('img');
+            img.src = i.imagen || '';
+            tdImg.appendChild(img);
+            const tdNom = document.createElement('td');
+            tdNom.textContent = i.nombre;
+            const tdCant = document.createElement('td');
+            tdCant.textContent = i.cantidad;
+            const tdSub = document.createElement('td');
+            tdSub.textContent = 'Q' + Number(i.subtotal).toFixed(2);
+            const tdBtn = document.createElement('td');
+            const btn = document.createElement('button');
+            btn.className = 'del';
+            btn.textContent = 'Eliminar';
+            btn.onclick = () => eliminar(i.idShoppingCart);
+            tdBtn.appendChild(btn);
+            tr.append(tdImg, tdNom, tdCant, tdSub, tdBtn);
+            tbody.appendChild(tr);
+        });
+        document.getElementById('total').textContent = total.toFixed(2);
+    }
+
+    async function agregar(idProducto) {
+        await pedir('/api/carrito', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ codUsuario: USUARIO, idProducto: idProducto, cantidad: 1 })
+        });
+        aviso('Producto agregado', 'ok');
+        cargarCarrito();
+    }
+
+    async function eliminar(id) {
+        await pedir('/api/carrito/' + id, { method: 'DELETE' });
+        aviso('Producto eliminado', 'ok');
+        cargarCarrito();
+    }
+
+    cargarProductos().then(cargarCarrito).catch(() => {});
+</script>
+</body>
+</html>
