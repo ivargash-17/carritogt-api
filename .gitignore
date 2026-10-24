@@ -34,3 +34,4 @@ build/
 target/
 wget-log
 *.save
+salida.txt
