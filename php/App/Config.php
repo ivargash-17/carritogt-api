@@ -34,7 +34,7 @@ class Config {
      * Base de datos, contraseña
      * @var string
      */
-    const DB_PASSWORD = '2230';
+    const DB_PASSWORD = 'TU_PASSWORD';
 
     /**
      * Muestra u oculta los mensajes de error en pantalla
